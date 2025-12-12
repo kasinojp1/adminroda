@@ -7,56 +7,62 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 body {
-  font-family:'Poppins',sans-serif;
+  font-family: 'Poppins', sans-serif;
   background: linear-gradient(180deg,#071229,#0c1624);
   color:#fff;
   padding:20px;
+  max-width:600px;
+  margin:0 auto;
 }
 h1 {
+  font-size:28px;
+  text-align:center;
+  margin-bottom:20px;
   background: linear-gradient(90deg,#ffef9f,#d4af37);
   -webkit-background-clip:text;
   color:transparent;
-  font-size:28px;
-  text-align:center;
-  margin-bottom:30px;
 }
 section {margin-bottom:30px;}
-input, button {padding:10px 14px; border-radius:8px; border:none; font-weight:600;}
-button {cursor:pointer; background:#ffef9f; color:#111; transition:0.3s;}
-button:hover{background:#ffd966;}
-input[type="text"]{flex:1; margin-right:10px;}
-.row {display:flex; align-items:center; margin-bottom:10px;}
-.list {margin-top:10px; border:1px solid #ffd966; border-radius:10px; padding:10px; max-height:200px; overflow-y:auto;}
-.list div {padding:6px 10px; border-bottom:1px solid #ffd966;}
-.list div:last-child{border-bottom:none;}
+input, button {
+  padding:10px 14px;
+  border-radius:8px;
+  border:none;
+  font-weight:600;
+}
+button {
+  background:#ffef9f;
+  color:#111;
+  cursor:pointer;
+  margin-left:6px;
+}
+button:hover {background:#ffd966;}
+ul {margin-top:10px;}
+li {margin-bottom:6px;}
 </style>
 </head>
 <body>
 
-<h1>Admin Roda Hadiah — Natal KASINOJP</h1>
+<h1>Admin Roda Hadiah</h1>
 
 <section>
-  <h2>Voucher</h2>
-  <div class="row">
-    <input type="text" id="voucherInput" placeholder="Kode voucher baru...">
-    <button id="addVoucherBtn">Tambah Voucher</button>
-  </div>
-  <div class="list" id="voucherList"></div>
+  <h2>Set Hadiah</h2>
+  <input type="text" id="newPrize" placeholder="Masukkan hadiah baru">
+  <button id="addPrizeBtn">Tambah</button>
+  <button id="savePrizeBtn">Simpan ke Firebase</button>
+  <ul id="prizeList"></ul>
 </section>
 
 <section>
-  <h2>Hadiah Roda</h2>
-  <div class="row">
-    <button id="resetPrizesBtn">Reset Hadiah Default</button>
-  </div>
-  <div class="list" id="prizeList"></div>
+  <h2>Buat Voucher</h2>
+  <input type="text" id="voucherCode" placeholder="Masukkan kode voucher">
+  <button id="createVoucherBtn">Buat Voucher</button>
+  <ul id="voucherList"></ul>
 </section>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-import { getDatabase, ref, get, set, push, onValue } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+import { getDatabase, ref, set, get, onValue, push } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
-// Konfigurasi Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDlpuf_uIlpmr2ybAqpJ2GTTRW-t86PGf0",
   authDomain: "hadiahnatal-a033b.firebaseapp.com",
@@ -71,60 +77,70 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-const voucherInput = document.getElementById('voucherInput');
-const addVoucherBtn = document.getElementById('addVoucherBtn');
+const prizeListEl = document.getElementById('prizeList');
 const voucherListEl = document.getElementById('voucherList');
 
-const resetPrizesBtn = document.getElementById('resetPrizesBtn');
-const prizeListEl = document.getElementById('prizeList');
+let prizes = [];
 
-const vouchersRef = ref(db, 'gameConfig/vouchers');
-const prizesRef = ref(db, 'gameConfig/prizes');
-
-// Preset hadiah default
-const defaultPrizes = ['PLATINUM','DIAMOND','SILVER','PERFECT','EPIC'];
-
-// Tambah voucher baru
-addVoucherBtn.addEventListener('click', async () => {
-  const code = voucherInput.value.trim();
-  if(!code){ alert('Masukkan kode voucher!'); return; }
-  const snap = await get(ref(db,'gameConfig/vouchers/'+code));
-  if(snap.exists()){ alert('Voucher sudah ada'); return; }
-  await set(ref(db,'gameConfig/vouchers/'+code), true);
-  voucherInput.value='';
-  alert('Voucher berhasil ditambahkan');
+// --- Set Hadiah ---
+const newPrizeInput = document.getElementById('newPrize');
+document.getElementById('addPrizeBtn').addEventListener('click', ()=>{
+  const val = newPrizeInput.value.trim();
+  if(!val) return alert('Isi nama hadiah!');
+  prizes.push(val);
+  renderPrizes();
+  newPrizeInput.value='';
 });
 
-// Reset hadiah default
-resetPrizesBtn.addEventListener('click', async () => {
-  await set(prizesRef, defaultPrizes);
-  alert('Hadiah berhasil direset ke default');
-});
-
-// Tampilkan daftar voucher
-onValue(vouchersRef, snap => {
-  voucherListEl.innerHTML='';
-  if(snap.exists()){
-    Object.keys(snap.val()).forEach(code=>{
-      const div = document.createElement('div');
-      div.textContent = code;
-      voucherListEl.appendChild(div);
-    });
-  }
-});
-
-// Tampilkan daftar hadiah
-onValue(prizesRef, snap => {
+function renderPrizes(){
   prizeListEl.innerHTML='';
+  prizes.forEach((p,i)=>{
+    const li=document.createElement('li');
+    li.textContent=p;
+    prizeListEl.appendChild(li);
+  });
+}
+
+document.getElementById('savePrizeBtn').addEventListener('click', async ()=>{
+  if(prizes.length===0) return alert('Tidak ada hadiah untuk disimpan!');
+  await set(ref(db,'gameConfig/prizes'),prizes);
+  alert('Hadiah berhasil disimpan ke Firebase!');
+});
+
+// --- Buat Voucher ---
+const voucherInput = document.getElementById('voucherCode');
+document.getElementById('createVoucherBtn').addEventListener('click', async ()=>{
+  const code = voucherInput.value.trim();
+  if(!code) return alert('Masukkan kode voucher!');
+  const voucherRef = ref(db,'gameConfig/vouchers/'+code);
+  const snap = await get(voucherRef);
   if(snap.exists()){
-    snap.val().forEach(prize=>{
-      const div = document.createElement('div');
-      div.textContent = prize;
-      prizeListEl.appendChild(div);
-    });
+    alert('Voucher sudah ada!');
+    return;
+  }
+  await set(voucherRef,{created:Date.now()});
+  voucherInput.value='';
+  alert('Voucher berhasil dibuat!');
+});
+
+// --- Tampilkan voucher & hadiah realtime ---
+const vouchersRef = ref(db,'gameConfig/vouchers');
+onValue(vouchersRef,snap=>{
+  voucherListEl.innerHTML='';
+  snap.forEach(child=>{
+    const li = document.createElement('li');
+    li.textContent = child.key;
+    voucherListEl.appendChild(li);
+  });
+});
+
+const prizesRef = ref(db,'gameConfig/prizes');
+onValue(prizesRef,snap=>{
+  if(snap.exists()){
+    prizes = snap.val();
+    renderPrizes();
   }
 });
 </script>
-
 </body>
 </html>
